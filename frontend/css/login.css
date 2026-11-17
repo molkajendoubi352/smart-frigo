@@ -1,0 +1,124 @@
+/* ═══════════════════════════════════════════
+   SmartFrigo — Login / Register Page Styles
+   ═══════════════════════════════════════════ */
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.auth-wrap {
+  position: relative;
+  z-index: 1;
+  width: 420px;
+  max-width: 95vw;
+}
+
+.auth-box {
+  background: rgba(10,42,58,0.85);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 48px 40px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 0 80px rgba(0,212,255,0.08), 0 40px 80px rgba(0,0,0,0.4);
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 36px;
+}
+.auth-logo .icon {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, var(--cyan), var(--teal));
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+}
+.auth-logo h1 {
+  font-family: 'Space Mono', monospace;
+  font-size: 22px; font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+.auth-logo h1 span { color: var(--cyan); }
+
+/* Tabs */
+.auth-tabs {
+  display: flex;
+  margin-bottom: 32px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.auth-tab {
+  flex: 1; padding: 12px; text-align: center;
+  cursor: pointer; font-family: 'Space Mono', monospace;
+  font-size: 12px; letter-spacing: .5px;
+  transition: all .25s; color: var(--muted);
+  background: transparent;
+  border: none;
+  text-decoration: none;
+}
+.auth-tab.active {
+  background: var(--cyan);
+  color: var(--deep);
+  font-weight: 700;
+}
+
+/* Form panel */
+.auth-form { display: none; }
+.auth-form.active { display: block; }
+
+/* Fields */
+.field { margin-bottom: 18px; }
+.field label {
+  display: block;
+  font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 8px;
+  font-family: 'Space Mono', monospace;
+}
+.field input {
+  width: 100%; padding: 13px 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text);
+  font-size: 14px; font-family: 'DM Sans', sans-serif;
+  transition: border-color .2s, box-shadow .2s;
+  outline: none;
+}
+.field input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+}
+
+/* Primary button */
+.btn-primary {
+  width: 100%; padding: 14px;
+  background: linear-gradient(135deg, var(--cyan), var(--teal));
+  border: none; border-radius: 10px;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px; font-weight: 700;
+  color: var(--deep); cursor: pointer;
+  letter-spacing: .5px;
+  transition: transform .15s, box-shadow .15s;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,212,255,0.3); }
+.btn-primary:active { transform: translateY(0); }
+
+/* Error message */
+.error-msg {
+  display: none;
+  background: rgba(255,45,85,0.12);
+  border: 1px solid rgba(255,45,85,0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--danger);
+  margin-bottom: 16px;
+  font-family: 'Space Mono', monospace;
+}
+.error-msg.show { display: block; }

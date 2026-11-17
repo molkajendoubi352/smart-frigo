@@ -1,0 +1,13 @@
+/* ═══════════════════════════════════════════
+   SmartFrigo — Products Page Styles
+   ═══════════════════════════════════════════ */
+
+.filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.filters-bar select {
+  width: auto;
+  min-width: 160px;
+}

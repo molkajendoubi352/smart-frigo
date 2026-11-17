@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartFrigo – Temperature History</title>
+<link rel="stylesheet" href="../css/shared.css">
+<link rel="stylesheet" href="../css/history.css">
+</head>
+<body>
+
+<div id="app"></div>
+<div id="toast-container"></div>
+
+<script src="../js/shared.js"></script>
+<script>
+  requireAuth();
+
+  document.getElementById('app').innerHTML = renderSidebar('history') +
+  '<main class="main fade-in">' +
+    '<div class="page-header">' +
+      '<div class="page-breadcrumb">SmartFrigo / <span>History</span></div>' +
+      '<h1>Activity History</h1>' +
+      '<p>Temperature logs, product additions and removals.</p>' +
+    '</div>' +
+    '<div class="grid-2 mb-20">' +
+      '<div class="card">' +
+        '<div class="section-header">' +
+          '<span class="section-title">🔍 Filter</span>' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label>Select Fridge</label>' +
+          '<select id="history-fridge-select" onchange="loadHistory()">' +
+            '<option value="">All Fridges</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label>Period</label>' +
+          '<select id="history-period" onchange="loadHistory()">' +
+            '<option value="24">Last 24 hours</option>' +
+            '<option value="48">Last 48 hours</option>' +
+            '<option value="168">Last 7 days</option>' +
+          '</select>' +
+        '</div>' +
+        '<button class="btn btn-danger btn-sm" onclick="clearHistory()">🗑 Delete History</button>' +
+      '</div>' +
+      '<div class="card">' +
+        '<div class="section-header">' +
+          '<span class="section-title">📊 Summary</span>' +
+        '</div>' +
+        '<div id="history-summary"></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card">' +
+      '<div class="section-header">' +
+        '<span class="section-title">📋 Event Log</span>' +
+      '</div>' +
+      '<div id="history-log"></div>' +
+    '</div>' +
+  '</main>';
+
+  async function init() {
+    var res = await api("fridges.php", "getAll");
+    var fridges = res.fridges || [];
+    var sel = document.getElementById("history-fridge-select");
+    for (var i = 0; i < fridges.length; i++) {
+      var o = document.createElement("option");
+      o.value = fridges[i].serial;
+      o.textContent = fridges[i].name;
+      sel.appendChild(o);
+    }
+    loadHistory();
+  }
+
+  async function loadHistory() {
+    var fridgeId = document.getElementById("history-fridge-select").value;
+    var hours = document.getElementById("history-period").value;
+    var res = await api("history.php", "getAll", { fridge_id: fridgeId || null, hours: parseInt(hours) });
+    var history = res.history || [];
+    var temps = [];
+    for (var i = 0; i < history.length; i++) {
+      temps.push(parseFloat(history[i].temperature));
+    }
+
+    var minT = "--";
+    var maxT = "--";
+    var avgT = "--";
+    if (temps.length) {
+      minT = Math.min.apply(null, temps).toFixed(1);
+      maxT = Math.max.apply(null, temps).toFixed(1);
+      var sum = 0;
+      for (var j = 0; j < temps.length; j++) {
+        sum += temps[j];
+      }
+      avgT = (sum / temps.length).toFixed(1);
+    }
+
+    document.getElementById("history-summary").innerHTML =
+      '<div class="history-entry">' +
+        '<div class="history-dot" style="background:var(--cyan)"></div>' +
+        '<div class="history-desc">Min Temperature</div>' +
+        '<div class="history-temp" style="color:var(--cyan)">' + minT + '°C</div>' +
+      '</div>' +
+      '<div class="history-entry">' +
+        '<div class="history-dot" style="background:var(--ok)"></div>' +
+        '<div class="history-desc">Average Temperature</div>' +
+        '<div class="history-temp" style="color:var(--ok)">' + avgT + '°C</div>' +
+      '</div>' +
+      '<div class="history-entry">' +
+        '<div class="history-dot" style="background:var(--warn)"></div>' +
+        '<div class="history-desc">Max Temperature</div>' +
+        '<div class="history-temp" style="color:var(--warn)">' + maxT + '°C</div>' +
+      '</div>' +
+      '<div class="history-entry">' +
+        '<div class="history-dot" style="background:var(--muted)"></div>' +
+        '<div class="history-desc">Total Records</div>' +
+        '<div class="history-temp" style="color:var(--muted)">' + history.length + '</div>' +
+      '</div>';
+
+    var log = document.getElementById("history-log");
+    var html = "";
+    var start = history.length - 20;
+    if (start < 0) {
+      start = 0;
+    }
+    for (var k = history.length - 1; k >= start; k--) {
+      var e = history[k];
+      var icon = e.type === "temperature" ? "🌡" : e.type === "product_added" ? "✅" : "🗑";
+      var color = e.type === "product_removed" ? "danger" : e.type === "product_added" ? "ok" : "cyan";
+      var desc = e.type === "temperature" ? e.temperature + "°C recorded" : e.note;
+      html += '<div class="history-entry">' +
+        '<div class="history-dot" style="background:var(--' + color + ')"></div>' +
+        '<div class="history-time">' + new Date(e.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + '</div>' +
+        '<div class="history-desc">' + icon + ' ' + desc + '</div>' +
+      '</div>';
+    }
+    if (!html) {
+      html = '<div class="text-muted" style="text-align:center;padding:20px">No data for this period</div>';
+    }
+    log.innerHTML = html;
+  }
+
+  async function clearHistory() {
+    if (!confirm("Delete all history data?")) {
+      return;
+    }
+    await api("history.php", "clear");
+    showToast("History cleared", "info");
+    loadHistory();
+  }
+
+  init();
+</script>
+</body>
+</html>

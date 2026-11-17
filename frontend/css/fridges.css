@@ -1,0 +1,43 @@
+/* ═══════════════════════════════════════════
+   SmartFrigo — My Fridges Page Styles
+   ═══════════════════════════════════════════ */
+
+.add-card {
+  cursor: pointer;
+  border-style: dashed !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  transition: all .25s;
+}
+.add-card:hover {
+  border-color: var(--cyan) !important;
+  background: rgba(0,212,255,0.04) !important;
+}
+.add-card .add-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: .4;
+}
+.add-card .add-label {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Temp gauge in modal */
+.temp-big {
+  text-align: center;
+  padding: 20px 0;
+}
+.temp-big .value {
+  font-family: 'Space Mono', monospace;
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+}
+.temp-big .badge {
+  margin: 12px auto;
+  display: inline-flex;
+}

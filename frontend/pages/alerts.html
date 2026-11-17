@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartFrigo – Alerts</title>
+  <link rel="stylesheet" href="../css/shared.css">
+  <link rel="stylesheet" href="../css/alerts.css">
+</head>
+<body>
+
+<div id="app"></div>
+<div id="toast-container"></div>
+
+<script src="../js/shared.js"></script>
+<script>
+  requireAuth();
+
+  var allAlerts = [];
+  var currentFilter = "all";
+
+  async function init() {
+    var res = await api("alerts.php", "getAll");
+    allAlerts = res.alerts || [];
+
+    var activeCount = 0;
+    for (var i = 0; i < allAlerts.length; i++) {
+      if (allAlerts[i].dismissed == 0) {
+        activeCount++;
+      }
+    }
+
+    document.getElementById("app").innerHTML = renderSidebar("alerts", activeCount) +
+    '<main class="main fade-in">' +
+      '<div class="page-header">' +
+        '<div class="page-breadcrumb">SmartFrigo / <span>Alerts</span></div>' +
+        '<h1>Alerts</h1>' +
+        '<p>Temperature anomalies and product expiry notifications.</p>' +
+      '</div>' +
+      '<div class="section-header mb-20">' +
+        '<div class="filter-btn-group">' +
+          '<button class="filter-btn active" onclick="setFilter(\'all\', this)">All</button>' +
+          '<button class="filter-btn" onclick="setFilter(\'critical\', this)">🚨 Critical</button>' +
+          '<button class="filter-btn" onclick="setFilter(\'warning\', this)">⚠️ Warning</button>' +
+          '<button class="filter-btn" onclick="setFilter(\'info\', this)">ℹ️ Info</button>' +
+        '</div>' +
+        '<button class="btn btn-sm btn-ghost" onclick="dismissAll()">Dismiss All</button>' +
+      '</div>' +
+      '<div id="alerts-list"></div>' +
+    '</main>';
+
+    renderAlerts();
+  }
+
+  function setFilter(type, button) {
+    currentFilter = type;
+    var buttons = document.querySelectorAll(".filter-btn");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].classList.remove("active");
+    }
+    if (button) {
+      button.classList.add("active");
+    }
+    renderAlerts();
+  }
+
+  function renderAlerts() {
+    var list = [];
+    for (var i = 0; i < allAlerts.length; i++) {
+      if (allAlerts[i].dismissed == 0) {
+        if (currentFilter === "all" || allAlerts[i].type === currentFilter) {
+          list.push(allAlerts[i]);
+        }
+      }
+    }
+
+    var container = document.getElementById("alerts-list");
+    if (!list.length) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><p>No active alerts!</p></div>';
+      return;
+    }
+
+    var html = "";
+    for (var j = 0; j < list.length; j++) {
+      var a = list[j];
+      var icon = a.type === "critical" ? "🚨" : a.type === "warning" ? "⚠️" : "ℹ️";
+      html += '<div class="alert-item ' + a.type + '">' +
+        '<div class="alert-icon">' + icon + '</div>' +
+        '<div style="flex:1">' +
+          '<div class="alert-title">' + a.title + '</div>' +
+          '<div class="alert-desc">' + a.description + '</div>' +
+          '<div class="alert-time">' + new Date(a.created_at).toLocaleString() + '</div>' +
+        '</div>' +
+        '<button class="alert-dismiss" onclick="dismiss(' + a.id + ')">✕</button>' +
+      '</div>';
+    }
+    container.innerHTML = html;
+  }
+
+  async function dismiss(id) {
+    await api("alerts.php", "dismiss", { id: id });
+    for (var i = 0; i < allAlerts.length; i++) {
+      if (allAlerts[i].id === id) {
+        allAlerts[i].dismissed = true;
+        break;
+      }
+    }
+    renderAlerts();
+    showToast("Alert dismissed", "info");
+  }
+
+  async function dismissAll() {
+    await api("alerts.php", "dismissAll");
+    for (var i = 0; i < allAlerts.length; i++) {
+      allAlerts[i].dismissed = true;
+    }
+    renderAlerts();
+    showToast("All alerts dismissed", "info");
+  }
+
+  init();
+</script>
+</body>
+</html>

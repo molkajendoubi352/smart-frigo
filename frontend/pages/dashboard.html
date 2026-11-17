@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartFrigo – Dashboard</title>
+<link rel="stylesheet" href="../css/shared.css">
+<link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+
+<div id="app"></div>
+<div id="toast-container"></div>
+
+<script src="../js/shared.js"></script>
+<script>
+  requireAuth();
+  var user = getUser();
+
+  document.getElementById('app').innerHTML = renderSidebar('dashboard') +
+  '<main class="main fade-in">' +
+    '<div class="page-header">' +
+      '<div class="page-breadcrumb">SmartFrigo / <span>Dashboard</span></div>' +
+      '<h1>Dashboard Overview</h1>' +
+      '<p>Welcome back, ' + user.name + '! Here\'s what\'s happening with your fridges.</p>' +
+    '</div>' +
+
+    '<div class="stat-grid">' +
+      '<div class="stat-card" style="--accent-color:var(--cyan)">' +
+        '<div class="stat-label">Total Fridges</div>' +
+        '<div class="stat-value cyan" id="stat-fridges">–</div>' +
+        '<div class="stat-sub" id="stat-fridges-sub"></div>' +
+      '</div>' +
+      '<div class="stat-card" style="--accent-color:var(--mint)">' +
+        '<div class="stat-label">Total Products</div>' +
+        '<div class="stat-value mint" id="stat-products">–</div>' +
+        '<div class="stat-sub" id="stat-products-sub"></div>' +
+      '</div>' +
+      '<div class="stat-card" style="--accent-color:var(--warn)">' +
+        '<div class="stat-label">Active Alerts</div>' +
+        '<div class="stat-value warn" id="stat-alerts">–</div>' +
+        '<div class="stat-sub" id="stat-alerts-sub"></div>' +
+      '</div>' +
+      '<div class="stat-card" style="--accent-color:var(--ok)">' +
+        '<div class="stat-label">Avg Temperature</div>' +
+        '<div class="stat-value" style="color:var(--ok)" id="stat-avgtemp">–</div>' +
+        '<div class="stat-sub">All online fridges</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="grid-2 mb-20">' +
+      '<div class="card">' +
+        '<div class="section-header">' +
+          '<span class="section-title">🧊 Fridge Status</span>' +
+          '<a href="fridges.html" class="btn btn-sm btn-ghost">View All</a>' +
+        '</div>' +
+        '<div id="home-fridge-list"></div>' +
+      '</div>' +
+      '<div class="card">' +
+        '<div class="section-header">' +
+          '<span class="section-title">🔔 Recent Alerts</span>' +
+          '<a href="alerts.html" class="btn btn-sm btn-ghost">View All</a>' +
+        '</div>' +
+        '<div id="home-alerts-list"></div>' +
+      '</div>' +
+    '</div>' +
+  '</main>';
+
+  async function render() {
+    var fridgesRes = await api("fridges.php", "getAll");
+    var productsRes = await api("products.php", "getAll");
+    var alertsRes = await api("alerts.php", "getAll");
+
+    var fridges = fridgesRes.fridges || [];
+    var products = productsRes.products || [];
+    var alerts = alertsRes.alerts || [];
+
+    var onlineFridges = [];
+    var offlineFridges = [];
+    for (var i = 0; i < fridges.length; i++) {
+      if (fridges[i].status === "online") {
+        onlineFridges.push(fridges[i]);
+      } else {
+        offlineFridges.push(fridges[i]);
+      }
+    }
+
+    var activeAlerts = [];
+    var criticalAlerts = [];
+    for (var j = 0; j < alerts.length; j++) {
+      if (alerts[j].dismissed == 0) {
+        activeAlerts.push(alerts[j]);
+        if (alerts[j].type === "critical") {
+          criticalAlerts.push(alerts[j]);
+        }
+      }
+    }
+
+    var expiringSoon = 0;
+    for (var k = 0; k < products.length; k++) {
+      var diff = Math.ceil((new Date(products[k].expiry_date) - new Date()) / 86400000);
+      if (diff >= 0 && diff <= 3) {
+        expiringSoon++;
+      }
+    }
+
+    var sumTemp = 0;
+    for (var m = 0; m < onlineFridges.length; m++) {
+      sumTemp += parseFloat(onlineFridges[m].current_temp);
+    }
+    var avgTemp = "–";
+    if (onlineFridges.length) {
+      avgTemp = (sumTemp / onlineFridges.length).toFixed(1) + "°C";
+    }
+
+    document.getElementById("stat-fridges").textContent = fridges.length;
+    document.getElementById("stat-fridges-sub").textContent = onlineFridges.length + " online · " + offlineFridges.length + " offline";
+    document.getElementById("stat-products").textContent = products.length;
+    document.getElementById("stat-products-sub").textContent = expiringSoon + " expiring soon";
+    document.getElementById("stat-alerts").textContent = activeAlerts.length;
+    document.getElementById("stat-alerts-sub").textContent = criticalAlerts.length + " critical";
+    document.getElementById("stat-avgtemp").textContent = avgTemp;
+
+    var fridgeHtml = "";
+    for (var n = 0; n < fridges.length; n++) {
+      var f = fridges[n];
+      var ok = parseFloat(f.current_temp) >= parseFloat(f.min_temp) && parseFloat(f.current_temp) <= parseFloat(f.max_temp);
+      var cls = ok ? "ok" : "danger";
+      var tempClass = "ok";
+      if (parseFloat(f.current_temp) > parseFloat(f.max_temp)) {
+        tempClass = "warn";
+      } else if (parseFloat(f.current_temp) < parseFloat(f.min_temp)) {
+        tempClass = "cyan";
+      }
+      var statusBadge = "OFFLINE";
+      if (f.status === "online") {
+        statusBadge = ok ? "OK" : "ALERT";
+      }
+      var statusColor = f.status === "online" ? (ok ? "ok" : "danger") : "info";
+      fridgeHtml += '<div class="history-entry">' +
+        '<div class="history-dot" style="background:var(--' + (f.status === "online" ? cls : "muted") + ')"></div>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:13px;font-weight:600;color:#fff">' + f.name + '</div>' +
+          '<div class="text-muted">' + f.location + ' · ' + f.serial + '</div>' +
+        '</div>' +
+        '<div class="history-temp" style="color:var(--' + tempClass + ')">' + f.current_temp + '°C</div>' +
+        '<div class="badge badge-' + statusColor + '" style="margin-left:8px">' + statusBadge + '</div>' +
+      '</div>';
+    }
+    if (!fridgeHtml) {
+      fridgeHtml = '<div class="text-muted" style="text-align:center;padding:20px">No fridges yet</div>';
+    }
+    document.getElementById("home-fridge-list").innerHTML = fridgeHtml;
+
+    var recent = [];
+    for (var p = 0; p < activeAlerts.length && p < 4; p++) {
+      recent.push(activeAlerts[p]);
+    }
+    var alertsHtml = "";
+    for (var q = 0; q < recent.length; q++) {
+      var a = recent[q];
+      var dotColor = a.type === "critical" ? "danger" : a.type === "warning" ? "warn" : "cyan";
+      alertsHtml += '<div class="history-entry">' +
+        '<div class="history-dot" style="background:var(--' + dotColor + ')"></div>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:13px;font-weight:600;color:#fff">' + a.title + '</div>' +
+          '<div class="text-muted">' + new Date(a.created_at).toLocaleString() + '</div>' +
+        '</div>' +
+      '</div>';
+    }
+    if (!alertsHtml) {
+      alertsHtml = '<div class="text-muted" style="text-align:center;padding:20px">No active alerts ✓</div>';
+    }
+    document.getElementById("home-alerts-list").innerHTML = alertsHtml;
+  }
+
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartFrigo – Products</title>
+  <link rel="stylesheet" href="../css/shared.css">
+  <link rel="stylesheet" href="../css/products.css">
+</head>
+<body>
+
+<div id="app"></div>
+<div id="toast-container"></div>
+
+<!-- Add/Edit Product Modal -->
+<div class="modal-overlay" id="modal-product">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Add Product</span>
+      <button class="modal-close" onclick="closeModal('modal-product')">✕</button>
+    </div>
+    <form onsubmit="saveProduct(event)">
+      <input type="hidden" id="product-id">
+      <div class="form-group">
+        <label for="product-name">Product Name</label>
+        <input type="text" id="product-name" placeholder="e.g. Greek Yogurt" required>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="product-category">Category</label>
+          <select id="product-category">
+            <option>Dairy</option>
+            <option>Meat</option>
+            <option>Vegetables</option>
+            <option>Fruits</option>
+            <option>Drinks</option>
+            <option>Leftovers</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="product-fridge">Fridge</label>
+          <select id="product-fridge" required></select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="product-qty">Quantity</label>
+          <input type="text" id="product-qty" placeholder="e.g. 500g">
+        </div>
+        <div class="form-group">
+          <label for="product-expiry">Expiry Date</label>
+          <input type="date" id="product-expiry" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-product')">Cancel</button>
+        <button type="submit" class="btn btn-cyan">Save Product</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="../js/shared.js"></script>
+<script>
+  requireAuth();
+
+  var EMOJIS = { Dairy: "🥛", Meat: "🍗", Vegetables: "🥦", Fruits: "🍎", Drinks: "🧃", Leftovers: "🍱" };
+  var products = [];
+  var fridges = [];
+
+  async function init() {
+    var pRes = await api("products.php", "getAll");
+    var fRes = await api("fridges.php", "getAll");
+    products = pRes.products || [];
+    fridges = fRes.fridges || [];
+    renderPage();
+  }
+
+  function renderPage() {
+    var fridgeOptions = "";
+    for (var i = 0; i < fridges.length; i++) {
+      fridgeOptions += '<option value="' + fridges[i].serial + '">' + fridges[i].name + '</option>';
+    }
+
+    document.getElementById("app").innerHTML = renderSidebar("products") +
+    '<main class="main fade-in">' +
+      '<div class="page-header">' +
+        '<div class="page-breadcrumb">SmartFrigo / <span>Products</span></div>' +
+        '<h1>Products</h1>' +
+        '<p>Track food items stored in your fridges.</p>' +
+      '</div>' +
+      '<div class="section-header mb-20">' +
+        '<div class="filters-bar">' +
+          '<select id="filter-fridge" onchange="renderProducts()">' +
+            '<option value="">All Fridges</option>' + fridgeOptions +
+          '</select>' +
+          '<select id="filter-category" onchange="renderProducts()">' +
+            '<option value="">All Categories</option>' +
+            '<option>Dairy</option><option>Meat</option><option>Vegetables</option>' +
+            '<option>Fruits</option><option>Drinks</option><option>Leftovers</option>' +
+          '</select>' +
+        '</div>' +
+        '<button class="btn btn-cyan" onclick="openAdd()">＋ Add Product</button>' +
+      '</div>' +
+      '<div class="product-grid" id="products-grid"></div>' +
+    '</main>';
+    renderProducts();
+  }
+
+  function renderProducts() {
+    var fridgeFilter = document.getElementById("filter-fridge").value;
+    var catFilter = document.getElementById("filter-category").value;
+    var list = [];
+    for (var i = 0; i < products.length; i++) {
+      var item = products[i];
+      if (fridgeFilter && item.fridge_serial !== fridgeFilter) {
+        continue;
+      }
+      if (catFilter && item.category !== catFilter) {
+        continue;
+      }
+      list.push(item);
+    }
+
+    var grid = document.getElementById("products-grid");
+    if (!list.length) {
+      grid.innerHTML = '<div class="empty-state span-full"><div class="empty-icon">📦</div><p>No products found</p></div>';
+      return;
+    }
+
+    var html = "";
+    for (var j = 0; j < list.length; j++) {
+      var p = list[j];
+      var fridgeName = "Unknown";
+      for (var k = 0; k < fridges.length; k++) {
+        if (fridges[k].serial === p.fridge_serial) {
+          fridgeName = fridges[k].name;
+          break;
+        }
+      }
+      var exp = expiryStatus(p.expiry_date);
+      html += '<div class="product-card">' +
+        '<div class="product-emoji">' + (p.emoji || EMOJIS[p.category] || "🍴") + '</div>' +
+        '<div class="product-name">' + p.name + '</div>' +
+        '<div class="product-cat">' + p.category + '</div>' +
+        '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">📍 ' + fridgeName + ' · ' + p.quantity + '</div>' +
+        '<div class="product-expiry ' + exp.cls + '">' + exp.label + '</div>' +
+        '<div class="product-actions">' +
+          '<button class="btn btn-sm btn-ghost" onclick="openEdit(' + p.id + ')">✏️ Edit</button>' +
+          '<button class="btn btn-sm btn-danger" onclick="deleteProduct(' + p.id + ')">🗑</button>' +
+        '</div>' +
+      '</div>';
+    }
+    grid.innerHTML = html;
+  }
+
+  function fillFridgeSelect() {
+    var sel = document.getElementById("product-fridge");
+    var html = "";
+    for (var i = 0; i < fridges.length; i++) {
+      html += '<option value="' + fridges[i].serial + '">' + fridges[i].name + '</option>';
+    }
+    sel.innerHTML = html;
+  }
+
+  function openAdd() {
+    document.getElementById("modal-title").textContent = "Add Product";
+    document.getElementById("product-id").value = "";
+    document.getElementById("product-name").value = "";
+    document.getElementById("product-qty").value = "";
+    document.getElementById("product-expiry").value = "";
+    fillFridgeSelect();
+    openModal("modal-product");
+  }
+
+  function openEdit(id) {
+    var found = null;
+    for (var i = 0; i < products.length; i++) {
+      if (products[i].id == id) {
+        found = products[i];
+        break;
+      }
+    }
+    if (!found) {
+      return;
+    }
+    document.getElementById("modal-title").textContent = "Edit Product";
+    document.getElementById("product-id").value = found.id;
+    document.getElementById("product-name").value = found.name;
+    document.getElementById("product-qty").value = found.quantity;
+    document.getElementById("product-expiry").value = found.expiry_date;
+    fillFridgeSelect();
+    document.getElementById("product-category").value = found.category;
+    document.getElementById("product-fridge").value = found.fridge_serial;
+    openModal("modal-product");
+  }
+
+  async function saveProduct(e) {
+    e.preventDefault();
+    var id = document.getElementById("product-id").value;
+    var category = document.getElementById("product-category").value;
+    var data = {
+      name: document.getElementById("product-name").value,
+      category: category,
+      fridge_serial: document.getElementById("product-fridge").value,
+      quantity: document.getElementById("product-qty").value,
+      expiry: document.getElementById("product-expiry").value,
+      emoji: EMOJIS[category] || "🍴"
+    };
+
+    if (id) {
+      await api("products.php", "edit", { id: id, name: data.name, category: data.category, fridge_serial: data.fridge_serial, quantity: data.quantity, expiry: data.expiry, emoji: data.emoji });
+      showToast("Product updated", "success");
+    } else {
+      await api("products.php", "add", data);
+      showToast("Product added", "success");
+    }
+
+    closeModal("modal-product");
+    init();
+  }
+
+  async function deleteProduct(id) {
+    if (!confirm("Delete this product?")) {
+      return;
+    }
+    await api("products.php", "delete", { id: id });
+    showToast("Product removed", "info");
+    init();
+  }
+
+  var overlays = document.querySelectorAll(".modal-overlay");
+  for (var i = 0; i < overlays.length; i++) {
+    overlays[i].addEventListener("click", function (e) {
+      if (e.target === this) {
+        this.classList.remove("show");
+      }
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>
